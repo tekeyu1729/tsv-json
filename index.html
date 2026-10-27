@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TSV to JSON コンバーター</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        code, pre, .font-mono { font-family: 'JetBrains Mono', monospace; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen p-4 md:p-8">
+    <div class="max-w-5xl mx-auto space-y-6">
+        
+        <!-- ヘッダー -->
+        <header class="border-b border-slate-800 pb-4">
+            <h1 class="text-2xl md:text-3xl font-bold text-slate-50 flex items-center gap-2">
+                <svg class="w-8 h-8 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path>
+                </svg>
+                TSV to JSON 変換ツール
+            </h1>
+            <p class="text-slate-400 text-sm mt-1">
+                TSVデータをJSONフォーマットに変換・統合します。
+            </p>
+        </header>
+
+        <!-- メイン入力エリア -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            <!-- 既存JSONファイルの指定 (任意) -->
+            <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-5 shadow-lg backdrop-blur">
+                <h2 class="text-base font-semibold text-slate-200 mb-2 flex items-center justify-between">
+                    <span>1. 既存JSONファイル <span class="text-xs text-slate-400 font-normal">(任意)</span></span>
+                    <button id="clearJsonBtn" class="text-xs text-rose-400 hover:underline hidden">クリア</button>
+                </h2>
+                <p class="text-xs text-slate-400 mb-3">既存データがある場合は読み込んで更新・追加します。</p>
+                <div id="jsonDropZone" class="border-2 border-dashed border-slate-600 hover:border-indigo-400 transition-colors rounded-lg p-4 text-center cursor-pointer bg-slate-900/40">
+                    <input type="file" id="jsonFileInput" accept=".json" class="hidden">
+                    <svg class="w-8 h-8 mx-auto text-slate-500 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                    </svg>
+                    <span id="jsonFileName" class="text-sm text-slate-300 block font-medium">JSONファイルをドロップ または 選択</span>
+                    <span class="text-xs text-slate-500 block mt-1">既存のデータと結合します</span>
+                </div>
+            </div>
+
+            <!-- TSVファイルの指定 or 直接入力 -->
+            <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-5 shadow-lg backdrop-blur">
+                <h2 class="text-base font-semibold text-slate-200 mb-2">2. TSVデータ入力 <span class="text-rose-400">*</span></h2>
+                <p class="text-xs text-slate-400 mb-3">ファイルをアップロードするか直接テキストを貼り付けます。</p>
+                <div class="space-y-3">
+                    <div id="tsvDropZone" class="border-2 border-dashed border-slate-600 hover:border-indigo-400 transition-colors rounded-lg p-3 text-center cursor-pointer bg-slate-900/40">
+                        <input type="file" id="tsvFileInput" accept=".tsv,.txt" class="hidden">
+                        <span id="tsvFileName" class="text-xs text-indigo-300 font-medium">TSVファイルをドラッグ＆ドロップ または 選択</span>
+                    </div>
+                    <textarea id="tsvTextArea" rows="3" placeholder="曲名&#t;12.5&#t;1500&#n;..." class="w-full bg-slate-900/80 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-mono resize-none"></textarea>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 変換ボタン -->
+        <div class="flex items-center justify-between bg-slate-800/40 p-4 border border-slate-700/40 rounded-xl">
+            <div class="flex items-center gap-3">
+                <label for="outputFilename" class="text-xs text-slate-300 font-medium">出力ファイル名:</label>
+                <input type="text" id="outputFilename" value="data.json" class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1 text-xs text-slate-100 focus:outline-none focus:border-indigo-500 font-mono w-36">
+            </div>
+            <button id="convertBtn" class="bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-medium px-6 py-2 rounded-lg transition shadow-md shadow-indigo-900/40 flex items-center gap-2 text-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                変換実行
+            </button>
+        </div>
+
+        <!-- 出力表示セクション -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            <!-- 実行ログ -->
+            <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-5 shadow-lg flex flex-col h-[380px]">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                        処理コンソール / ログ
+                    </h3>
+                    <button id="clearLogBtn" class="text-xs text-slate-400 hover:text-slate-200">クリア</button>
+                </div>
+                <div id="logOutput" class="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-3 font-mono text-xs overflow-y-auto space-y-1 text-slate-300">
+                    <div class="text-slate-600">// 変換を実行するとここに実行ログが表示されます</div>
+                </div>
+            </div>
+
+            <!-- JSON結果 -->
+            <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-5 shadow-lg flex flex-col h-[380px]">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        JSON 出力結果
+                    </h3>
+                    <div class="flex items-center gap-2">
+                        <button id="copyJsonBtn" class="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-2.5 py-1 rounded transition flex items-center gap-1">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                            </svg>
+                            コピー
+                        </button>
+                        <button id="downloadJsonBtn" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-2.5 py-1 rounded transition flex items-center gap-1 shadow">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                            </svg>
+                            ダウンロード
+                        </button>
+                    </div>
+                </div>
+                <pre id="jsonResult" class="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-3 font-mono text-xs overflow-y-auto text-emerald-400">// 変換結果のJSONがここに表示されます</pre>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- 通知トースト -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-slate-800 border border-slate-700 text-slate-100 px-4 py-3 rounded-lg shadow-xl transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none text-sm z-50 flex items-center gap-2">
+        <span id="toastMsg">通知メッセージ</span>
+    </div>
+
+    <script>
+        // 状態変数
+        let loadedJsonData = [];
+        let tsvFileContent = "";
+
+        // DOM要素
+        const jsonDropZone = document.getElementById('jsonDropZone');
+        const jsonFileInput = document.getElementById('jsonFileInput');
+        const jsonFileName = document.getElementById('jsonFileName');
+        const clearJsonBtn = document.getElementById('clearJsonBtn');
+
+        const tsvDropZone = document.getElementById('tsvDropZone');
+        const tsvFileInput = document.getElementById('tsvFileInput');
+        const tsvFileName = document.getElementById('tsvFileName');
+        const tsvTextArea = document.getElementById('tsvTextArea');
+
+        const convertBtn = document.getElementById('convertBtn');
+        const logOutput = document.getElementById('logOutput');
+        const jsonResult = document.getElementById('jsonResult');
+        const outputFilename = document.getElementById('outputFilename');
+        
+        const copyJsonBtn = document.getElementById('copyJsonBtn');
+        const downloadJsonBtn = document.getElementById('downloadJsonBtn');
+        const clearLogBtn = document.getElementById('clearLogBtn');
+
+        // トースト通知関数
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            toastMsg.textContent = message;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // ログ出力関数 (Pythonのprint相当)
+        function appendLog(text, type = 'info') {
+            const div = document.createElement('div');
+            if (type === 'error') {
+                div.className = 'text-rose-400 font-semibold';
+            } else if (type === 'warning') {
+                div.className = 'text-amber-300';
+            } else if (type === 'success') {
+                div.className = 'text-emerald-400 font-semibold';
+            } else {
+                div.className = 'text-slate-300';
+            }
+            div.textContent = text;
+            logOutput.appendChild(div);
+            logOutput.scrollTop = logOutput.scrollHeight;
+        }
+
+        function clearLog() {
+            logOutput.innerHTML = '';
+        }
+
+        // --- JSON ファイル読み込み処理 ---
+        jsonDropZone.addEventListener('click', () => jsonFileInput.click());
+        jsonFileInput.addEventListener('change', handleJsonSelect);
+
+        jsonDropZone.addEventListener('dragover', (e) => { e.preventDefault(); jsonDropZone.classList.add('border-indigo-400'); });
+        jsonDropZone.addEventListener('dragleave', () => { jsonDropZone.classList.remove('border-indigo-400'); });
+        jsonDropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            jsonDropZone.classList.remove('border-indigo-400');
+            if (e.dataTransfer.files.length > 0) {
+                jsonFileInput.files = e.dataTransfer.files;
+                handleJsonSelect();
+            }
+        });
+
+        function handleJsonSelect() {
+            const file = jsonFileInput.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    if (Array.isArray(parsed)) {
+                        loadedJsonData = parsed;
+                        jsonFileName.textContent = `${file.name} (${parsed.length}件の既存データ)`;
+                        clearJsonBtn.classList.remove('hidden');
+                        showToast("既存JSONファイルを読み込みました");
+                    } else {
+                        alert("JSONファイルの内容は配列である必要があります。");
+                        resetJsonFile();
+                    }
+                } catch (err) {
+                    alert("JSONファイルの解析に失敗しました。正しいJSON形式か確認してください。");
+                    resetJsonFile();
+                }
+            };
+            reader.readAsText(file, 'UTF-8');
+        }
+
+        clearJsonBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            resetJsonFile();
+        });
+
+        function resetJsonFile() {
+            loadedJsonData = [];
+            jsonFileInput.value = '';
+            jsonFileName.textContent = "JSONファイルをドロップ または 選択";
+            clearJsonBtn.classList.add('hidden');
+        }
+
+        // --- TSV ファイル読み込み処理 ---
+        tsvDropZone.addEventListener('click', () => tsvFileInput.click());
+        tsvFileInput.addEventListener('change', handleTsvSelect);
+
+        tsvDropZone.addEventListener('dragover', (e) => { e.preventDefault(); tsvDropZone.classList.add('border-indigo-400'); });
+        tsvDropZone.addEventListener('dragleave', () => { tsvDropZone.classList.remove('border-indigo-400'); });
+        tsvDropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            tsvDropZone.classList.remove('border-indigo-400');
+            if (e.dataTransfer.files.length > 0) {
+                tsvFileInput.files = e.dataTransfer.files;
+                handleTsvSelect();
+            }
+        });
+
+        function handleTsvSelect() {
+            const file = tsvFileInput.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                tsvTextArea.value = e.target.result;
+                tsvFileName.textContent = `読み込み完了: ${file.name}`;
+                showToast("TSVファイルを読み込みました");
+            };
+            reader.readAsText(file, 'UTF-8');
+        }
+
+        // --- メイン変換処理 (Pythonの挙動を完全再現) ---
+        convertBtn.addEventListener('click', () => {
+            clearLog();
+
+            const tsvText = tsvTextArea.value;
+            if (!tsvText.trim()) {
+                appendLog("エラー: TSVデータが入力されていません。", "error");
+                return;
+            }
+
+            // Pythonの data_list の複製を作成（既存JSONが読み込まれていればそれを引き継ぐ）
+            let dataList = JSON.parse(JSON.stringify(loadedJsonData));
+
+            const lines = tsvText.split(/\r?\n/);
+            let validLinesCount = 0;
+
+            // 1回目のループ: バリデーションと有効行のカウント
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                if (!line.trim()) {
+                    appendLog(`${i + 1}行目が空白行です`, 'warning');
+                    continue;
+                }
+
+                const parts = line.split("\t");
+                const le_da = parts.length;
+
+                if (le_da === 3) {
+                    validLinesCount++;
+                } else if (le_da < 3) {
+                    appendLog(`${i + 1}行目にデータが${le_da}つしかありません（3つ必要です）`, 'error');
+                } else if (le_da > 3) {
+                    appendLog(`${i + 1}行目にデータが${le_da}つあります（3つである必要があります）`, 'error');
+                }
+            }
+
+            // 有効な行がある場合のみ処理を実行
+            if (validLinesCount > 0) {
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    if (!line.trim()) {
+                        continue;
+                    }
+
+                    const parts = line.split("\t");
+                    if (parts.length === 3) {
+                        const title = parts[0].trim();
+                        const difStr = parts[1].trim();
+                        const comStr = parts[2].trim();
+
+                        const dif = parseFloat(difStr);
+                        const com = parseInt(comStr, 10);
+
+                        // 数値チェック (float, intに正常変換できるか)
+                        if (isNaN(dif) || isNaN(com) || !/^-?\d+$/.test(comStr)) {
+                            appendLog(`数値変換エラー: 「${title}」の難易度またはノーツ数が正しくありません。`, 'error');
+                            continue;
+                        }
+
+                        const newSong = {
+                            "title": title,
+                            "dif": dif,
+                            "com": com
+                        };
+
+                        // 曲名（title）が既に存在するか確認して上書き、なければ追加
+                        let found = false;
+                        for (let j = 0; j < dataList.length; j++) {
+                            if (dataList[j].title === newSong.title) {
+                                dataList[j] = newSong;
+                                found = true;
+                                break;
+                            }
+                        }
+
+                        if (!found) {
+                            dataList.push(newSong);
+                        }
+                    }
+                }
+
+                // 画面上にJSON整形表示
+                const formattedJson = JSON.stringify(dataList, null, 4);
+                jsonResult.textContent = formattedJson;
+
+                appendLog("データが正常に更新・保存されました！", 'success');
+                showToast("データが正常に更新されました！");
+            } else {
+                appendLog("有効なデータがなかったため、ファイルは更新されませんでした。", 'error');
+            }
+        });
+
+        // --- クリップボードコピー ---
+        copyJsonBtn.addEventListener('click', () => {
+            const text = jsonResult.textContent;
+            if (!text || text.startsWith("//")) return;
+
+            // iframe制限対策のコピーフォールバック
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showToast("JSONをクリップボードにコピーしました");
+            } catch (err) {
+                alert("コピーに失敗しました");
+            }
+            document.body.removeChild(textarea);
+        });
+
+        // --- JSON ファイルダウンロード ---
+        downloadJsonBtn.addEventListener('click', () => {
+            const text = jsonResult.textContent;
+            if (!text || text.startsWith("//")) return;
+
+            let fname = outputFilename.value.trim();
+            if (!fname) fname = "data.json";
+            if (!fname.endsWith(".json")) fname += ".json";
+
+            const blob = new Blob([text], { type: "application/json;charset=utf-8;" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fname;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast(`${fname} をダウンロードしました`);
+        });
+
+        clearLogBtn.addEventListener('click', clearLog);
+    </script>
+</body>
+</html>
